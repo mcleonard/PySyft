@@ -97,6 +97,12 @@ class FixedPrecisionTensor(AbstractTensor):
         response = getattr(_self, "add")(*args, **kwargs)
 
         return response
+    
+    @hook
+    def mul(self, _self, *args, **kwargs):
+        response = getattr(_self, "mul")(*args, **kwargs)
+
+        truncated_response = 
 
     @classmethod
     def handle_func_command(cls, command):

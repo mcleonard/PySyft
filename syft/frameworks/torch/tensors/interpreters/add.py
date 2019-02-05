@@ -11,6 +11,7 @@ class AdditiveSharingTensor(AbstractTensor):
         id=None,
         Q_BITS=31,
         BASE=2,
+        crypto_provider=None,
         tags=None,
         description=None,
     ):
@@ -41,7 +42,8 @@ class AdditiveSharingTensor(AbstractTensor):
 
         self.BASE = BASE
         self.Q_BITS = Q_BITS
-        self.field = (self.BASE ** Q_BITS) - 1  # < 63 bits
+        self.field = (self.BASE ** Q_BITS) - 1  # < 63 bits, must be prime
+        self.crypto_provider = crypto_provider
 
     def get(self):
         """Fetches all shares and returns the plaintext tensor they represent"""
@@ -138,8 +140,8 @@ class AdditiveSharingTensor(AbstractTensor):
         # matches each share which needs to be added according
         # to the location of the share
         new_shares = {}
-        for k, v in shares.items():
-            new_shares[k] = other_shares[k] + v
+        for location, pointer in shares.items():
+            new_shares[location] = pointer + other_shares[location]
 
         # return the true tensor (unwrapped - wrapping will happen
         # automatically if needed)
@@ -172,8 +174,8 @@ class AdditiveSharingTensor(AbstractTensor):
         # matches each share which needs to be added according
         # to the location of the share
         new_shares = {}
-        for k, v in shares.items():
-            new_shares[k] = v - other_shares[k]
+        for location, pointer in shares.items():
+            new_shares[location] = pointer - other_shares[location]
 
         # return the true tensor (unwrapped - wrapping will happen
         # automatically if needed)
@@ -183,5 +185,48 @@ class AdditiveSharingTensor(AbstractTensor):
 
     @hook
     def __sub__(self, *args, **kwargs):
-        """Subtracts two tensors. See .sub() forr details."""
+        """Subtracts two tensors. See .sub() for details."""
         return self.sub(*args, **kwargs)
+
+    @hook
+    def mul(self, shares: dict, other_shares, **kwargs):
+        """Elementwise multiplies two tensors
+
+        Args:
+            shares: a dictionary <location_id -> PointerTensor) of shares corresponding to
+                self. Equivalent to calling self.child.
+            other_shares: a dictionary <location_id -> PointerTensor) of shares corresponding
+                to the tensor being multiplied with self.
+        """
+         # if someone passes in a constant... (i.e., x - 3)
+        if not isinstance(other_shares, dict):
+            other_shares = torch.Tensor([other_shares]).share(*self.child.keys()).child
+
+        assert len(shares) == len(other_shares)
+        if self.crypto_provider is None:
+            raise AttributeError("For multiplication a crytoprovider must be passed.")
+
+        locations = []
+        for location, pointer in shares.items():
+            locations.append(k)
+        triple = self.crypto_provider.generate_triple(
+            "ij->ij",
+            shares.items()[0].shape,
+            other_shares.items()[0].shape,
+            locations,
+        )
+        a, b, c = triple
+        
+        d = {}
+        e = {}
+        for location, pointer in shares.items():
+            d{location} = (pointer - a{location}) % self.field
+            e{location} = (other_shares{location} - b{location}) % self.field
+
+        delta = torch.zeros(d.items()[0].shape)
+        epsilson = torch.zeros(e.items()[0].shape)
+        
+ 
+
+
+
